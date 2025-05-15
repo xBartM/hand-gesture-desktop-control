@@ -11,3 +11,8 @@ ls /dev/video*
 sh start_camera.sh
 # preview - N is your camera
 ffplay -i /dev/videoN
+
+# install Python and setup venv
+python3 -m venv .venv --prompt hand-desktop
+# get opencv
+pip install opencv_python
