@@ -2,7 +2,7 @@ import os
 import subprocess
 import signal
 
-def start_camera(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=480, video_playback=False):
+def start_camera(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=480, video_playback=False, **kwargs):
     """
     Start streaming selected feed_type to selected v4l2 device.
 
@@ -12,6 +12,18 @@ def start_camera(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=480, vi
         v4l2_device (str, optional): choose v4l2-sink device. Defaults to '/dev/video0'
         max_size (int, optional): sets the feed resolution so it's <=max_size. Defaults to 480.
         video_playback (bool, optional): if True show scrcpy video output, otherwise don't
+        **kwargs: device config.
+            For scrcpy:
+                "video-codec" (str, optional): which video codec to use (ex. "h264"). 
+                    Defaults to None (choice made by scrcpy)
+                "video-encoder" (str, optional): which video encoder to use 
+                    (ex. "MX.qcom.video.encoder.avc"). 
+                    Defaults to None (choice made by scrcpy)
+                "capture-orientation" (int, optional): rotate output by this 
+                    much (ex. 90). Defaults to 0.
+                "crop" (str, optional): record only part of the screen, 
+                    format "xsize:ysize:xoffset:yoffset" (ex. "1080:1080:0:600"). 
+                    Defaults to None (fullscreen)
 
     Returns:
         int: PID of the subprocess created
@@ -28,25 +40,18 @@ def start_camera(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=480, vi
             print(f"Using v4l2loopback device: {v4l2_device}")
             try:
                 # create scrcpy command as needed
-                # for now video-codec and encoder are my device specific
                 scrcpy_command = [
                     "scrcpy",
-                    "--video-codec=h264",
-                    "--video-encoder=OMX.qcom.video.encoder.avc",
-                    "--capture-orientation=0",  # make it a parameter
-                    "--crop=1080:1080:0:600",   # make it a parameter
                     f"--max-size={max_size}",
                     f"--v4l2-sink={v4l2_device}",
-                    # "--no-playback",         # Don't show scrcpy's playback
                 ]
+                for arg_name, arg_value in kwargs.items():
+                    scrcpy_command.append(f"--{arg_name}={arg_value}")
                 if not video_playback:
                     scrcpy_command.append("--no-playback") 
                 print(f"Running command: {' '.join(scrcpy_command)}")
                 # Run scrcpy in the background or manage its process as needed
                 process = subprocess.Popen(scrcpy_command)
-                # print(f"scrcpy started with PID: {process.pid}")
-                # You might want to wait for it or manage it:
-                # process.wait()
             except FileNotFoundError:
                 print("Error: scrcpy command not found. Is it installed and in your PATH?")
             except Exception as e:
@@ -68,7 +73,23 @@ def get_screen_resolution():
     screen_x, screen_y = output.strip().split('x')
     return screen_x, screen_y
 
+def get_config(cfg_name):
+    cfg = {}
+    match cfg_name:
+        case 'Xiaomi Mi 9t - Open Camera':
+            cfg["video-codec"]      = "h264"
+            cfg["video-encoder"]    = "OMX.qcom.video.encoder.avc"
+            cfg["crop"]             = "1080:1080:0:600"          
+        case 'Xperia Z2 Tablet - Open Camera':
+            cfg["video-codec"]      = "h264"
+            cfg["video-encoder"]    = "OMX.qcom.video.encoder.avc"
+            # cfg["crop"]             = "1080:1080:0:600"          
+        case _:
+            raise ValueError(f"Unknown cfg_name: {cfg_name}")
+
+    return cfg
+
 # ret = start_camera()
 # print (ret)
 # if input() == 'q':
-#     os.kill(ret, signal.SIGSTOP)
+    # os.kill(ret, signal.SIGSTOP)
