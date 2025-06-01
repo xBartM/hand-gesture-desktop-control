@@ -1,24 +1,35 @@
 import cv2
 import time
 from queue import Queue
+import mediapipe as mp # Import mediapipe
+from pynput.mouse import Controller as MouseController # For mouse control
 
 # Project-specific imports
 from camera import scrcpy_manager
 from config import scrcpy_presets
 from vision import hand_tracker
 from vision import drawing
-from vision.hand_tracker import HandLandmarkerResult, MpImage, MpImageFormat # For type hints and MediaPipe image object
+from vision.hand_tracker import HandLandmarkerResult, MpImage, MpImageFormat
+from utils import system_utils # For getting screen resolution
 
 # --- Configuration ---
 V4L2_DEVICE = "/dev/video0"
 SCRCPY_MAX_SIZE = 240
-# IMPORTANT: Update this path to your actual model file location
-MODEL_ASSET_PATH = '{your_path_to}/hand_landmarker.task'
-SCRCPY_CONFIG_PRESET_NAME = "Xperia Z2 Tablet - Open Camera" # or "Xiaomi Mi 9t - Open Camera" or custom
+MODEL_ASSET_PATH = '{your_path_to}/hand_landmarker.task' # UPDATE THIS
+SCRCPY_CONFIG_PRESET_NAME = "Xperia Z2 Tablet - Open Camera"
 
-# --- Global Variables for MediaPipe Callback and Display ---
-# This queue will store annotated frames produced by the MediaPipe callback
+# --- Mouse Control Configuration ---
+ENABLE_MOUSE_CONTROL = True  # Set to False to disable mouse control
+MOUSE_CONTROL_LANDMARK = mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP # Landmark 9
+SMOOTHING_FACTOR = 0.3  # Lower value = more smoothing (e.g., 0.1 to 0.5)
+
+# --- Global Variables ---
 annotated_frame_buffer = Queue()
+mouse_controller = None
+screen_width, screen_height = None, None
+last_target_x, last_target_y = None, None
+is_first_mouse_move = True
+
 
 # --- MediaPipe Result Callback ---
 def mediapipe_result_callback(result: HandLandmarkerResult, output_image: MpImage, timestamp_ms: int):
@@ -26,30 +37,91 @@ def mediapipe_result_callback(result: HandLandmarkerResult, output_image: MpImag
     Callback function for MediaPipe HandLandmarker.
     Processes results, annotates images, and puts them in a queue for display.
     """
-    # print(f'Hand landmarker result at {timestamp_ms}ms: {result}') # For debugging
+    global last_target_x, last_target_y, is_first_mouse_move, mouse_controller, screen_width, screen_height
+
+    annotated_bgr_image = None # Default to None
 
     # Check if any hand landmarks were detected
     if result.hand_landmarks:
         # The output_image is the one provided by MediaPipe, containing the frame data
         # Convert mp.Image to NumPy array
         rgb_image = output_image.numpy_view()
+        annotated_rgb_image = drawing.draw_landmarks_on_image(rgb_image, result)
+        annotated_bgr_image = cv2.cvtColor(annotated_rgb_image, cv2.COLOR_RGB2BGR)
+        
+        if ENABLE_MOUSE_CONTROL and mouse_controller and screen_width and screen_height:
+            # Use the first detected hand
+            hand_landmarks = result.hand_landmarks[0]
+            
+            # Get the specific landmark for mouse control
+            control_landmark = hand_landmarks[MOUSE_CONTROL_LANDMARK]
 
-        # Draw landmarks on the image
-        annotated_image = drawing.draw_landmarks_on_image(rgb_image, result)
-        
-        # Convert annotated image from RGB to BGR for OpenCV display
-        bgr_annotated_image = cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR)
-        
-        # Put the annotated image into the queue
-        annotated_frame_buffer.put(bgr_annotated_image)
-    # else:
-        # Optionally handle cases where no hands are detected
-        # print(f"No hands detected at {timestamp_ms}ms")
+            # --- Absolute Mouse Positioning with Smoothing ---
+            # Map landmark coordinates (0.0-1.0) to screen coordinates
+            # MediaPipe's Y is 0 at top, 1 at bottom. Screen Y is also 0 at top, so direct mapping is fine.
+            # MediaPipe's X is 0 at left, 1 at right. Screen X is also 0 at left.
+            # If your camera view is mirrored, you might need to invert X: (1.0 - control_landmark.x)
+            raw_x = control_landmark.x * screen_width
+            raw_y = control_landmark.y * screen_height
+
+            if is_first_mouse_move:
+                target_x = raw_x
+                target_y = raw_y
+                is_first_mouse_move = False
+            else:
+                target_x = SMOOTHING_FACTOR * raw_x + (1 - SMOOTHING_FACTOR) * last_target_x
+                target_y = SMOOTHING_FACTOR * raw_y + (1 - SMOOTHING_FACTOR) * last_target_y
+            
+            # Update last target for next frame's smoothing
+            last_target_x = target_x
+            last_target_y = target_y
+
+            # Clamp values to screen boundaries and convert to int
+            final_x = max(0, min(int(target_x), screen_width - 1))
+            final_y = max(0, min(int(target_y), screen_height - 1))
+            
+            try:
+                mouse_controller.position = (final_x, final_y)
+            except Exception as e:
+                print(f"Error setting mouse position: {e}") # Handle pynput errors if any
+
+    # Put annotated image (or original if no annotation) into the queue
+    if annotated_bgr_image is not None:
+        annotated_frame_buffer.put(annotated_bgr_image)
+    elif output_image: # If no landmarks, but we have an image, put its BGR version
+        # This case might not be hit often if callback only fires on detection,
+        # but good for robustness if behavior changes.
+        # For now, assuming callback implies output_image is the frame with (potential) detections.
+        # If there are no detections, draw_landmarks_on_image returns a copy of rgb_image.
+        # So annotated_bgr_image should always be set if output_image exists.
+        pass
 
 
 def main():
+    global mouse_controller, screen_width, screen_height, last_target_x, last_target_y, is_first_mouse_move
+
     scrcpy_process = None
     cam = None
+
+    if ENABLE_MOUSE_CONTROL:
+        try:
+            mouse_controller = MouseController()
+            screen_width, screen_height = system_utils.get_screen_resolution()
+            if not screen_width or not screen_height:
+                print("Warning: Could not get screen resolution. Mouse control will be disabled.")
+                mouse_controller = None # Disable if no screen info
+            else:
+                print(f"Screen resolution: {screen_width}x{screen_height}. Mouse control enabled.")
+                # Initialize last_target_x/y to the center of the screen to avoid None issues
+                # or let is_first_mouse_move handle it.
+                last_target_x = screen_width / 2
+                last_target_y = screen_height / 2
+                is_first_mouse_move = True
+
+        except Exception as e:
+            print(f"Error initializing mouse controller or getting screen resolution: {e}")
+            print("Mouse control will be disabled.")
+            mouse_controller = None
 
     try:
         # --- Prepare scrcpy Camera Feed ---
@@ -64,16 +136,15 @@ def main():
         scrcpy_process = scrcpy_manager.start_scrcpy_feed(
             v4l2_device=V4L2_DEVICE,
             max_size=SCRCPY_MAX_SIZE,
-            video_playback=False, # Set to True if you want to see scrcpy's own window
+            video_playback=False,
             **scrcpy_custom_args
         )
         if scrcpy_process is None:
             print("Failed to start scrcpy. Exiting.")
             return
         
-        # Allow some time for scrcpy to initialize the v4l2 device
         print("Waiting for scrcpy and v4l2 device to initialize...")
-        time.sleep(3) # Adjust as needed
+        time.sleep(3) 
 
         # --- Connect to the v4l2 Camera ---
         cam = cv2.VideoCapture(V4L2_DEVICE)
@@ -119,7 +190,7 @@ def main():
 
                 # Display the annotated frame if available
                 if not annotated_frame_buffer.empty():
-                    annotated_frame = annotated_frame_buffer.get_nowait() # Use get_nowait to avoid blocking
+                    annotated_frame = annotated_frame_buffer.get_nowait()
                     cv2.imshow('Annotated Hand Landmarks', annotated_frame)
 
                 # Process for keyboard input (e.g., 'q' to quit)

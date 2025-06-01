@@ -20,7 +20,7 @@ def get_scrcpy_preset(cfg_name):
         cfg["video-codec"] = "h264"
         cfg["video-encoder"] = "OMX.qcom.video.encoder.avc"
         cfg["crop"] = "1080:1080:420:0"
-        cfg["max-fps"] = "10" 
+        cfg["max-fps"] = "30" 
     else:
         raise ValueError(f"Unknown cfg_name: {cfg_name}")
 
