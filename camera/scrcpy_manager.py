@@ -1,24 +1,31 @@
 import subprocess
-import signal # Though not directly used if Popen object handles signals
+from typing import Optional, List, Dict, Any
 
-def start_scrcpy_feed(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=480, video_playback=False, **kwargs):
-    """
-    Start streaming selected feed_type to selected v4l2 device.
+def start_scrcpy_feed(
+    feed_type: str = 'scrcpy',
+    v4l2_device: str = '/dev/video0',
+    max_size: int = 480,
+    video_playback: bool = False,
+    **kwargs: Any
+) -> Optional[subprocess.Popen]:
+    """Starts streaming selected feed_type to selected v4l2 device.
+
     Currently only supports 'scrcpy'.
 
     Args:
-        feed_type (str, optional): select which feed to start. Defaults to 'scrcpy'.
-        v4l2_device (str, optional): choose v4l2-sink device. Defaults to '/dev/video0'.
-        max_size (int, optional): sets the feed resolution so it's <=max_size. Defaults to 480.
-        video_playback (bool, optional): if True show scrcpy video output, otherwise don't.
-        **kwargs: device config for scrcpy.
-            "video-codec" (str, optional): e.g., "h264".
-            "video-encoder" (str, optional): e.g., "MX.qcom.video.encoder.avc".
-            "capture-orientation" (int, optional): e.g., 90.
-            "crop" (str, optional): e.g., "1080:1080:0:600".
+        feed_type: Select which feed to start. Defaults to 'scrcpy'.
+        v4l2_device: Choose v4l2-sink device. Defaults to '/dev/video0'.
+        max_size: Sets the feed resolution so it's <=max_size. Defaults to 480.
+        video_playback: If True, show scrcpy video output; otherwise, don't.
+        **kwargs: Additional device configuration for scrcpy. Examples:
+            "video-codec" (str): e.g., "h264".
+            "video-encoder" (str): e.g., "MX.qcom.video.encoder.avc".
+            "capture-orientation" (int): e.g., 90.
+            "crop" (str): e.g., "1080:1080:0:600".
 
     Returns:
-        subprocess.Popen: The Popen object for the started scrcpy process.
+        A subprocess.Popen object for the started scrcpy process, or None
+        if an error occurred during startup (other than FileNotFoundError).
 
     Raises:
         ValueError: If an unknown feed_type is provided.
@@ -28,7 +35,7 @@ def start_scrcpy_feed(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=48
     if feed_type == 'scrcpy':
         print(f"Using v4l2loopback device: {v4l2_device}")
         try:
-            scrcpy_command = [
+            scrcpy_command: List[str] = [
                 "scrcpy",
                 f"--max-size={max_size}",
                 f"--v4l2-sink={v4l2_device}",
@@ -45,21 +52,24 @@ def start_scrcpy_feed(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=48
             raise
         except Exception as e:
             print(f"Error starting scrcpy: {e}")
-            # Depending on desired behavior, you might want to raise e or return None
+            return None
     else:
         raise ValueError(f"Unknown feed_type: {feed_type}")
 
     return process
 
 
-def stop_scrcpy_feed(process: subprocess.Popen):
-    """
-    Stops the scrcpy process.
+def stop_scrcpy_feed(process: Optional[subprocess.Popen]):
+    """Stops the scrcpy process.
 
     Args:
-        process (subprocess.Popen): The Popen object for the scrcpy process.
+        process: The Popen object for the scrcpy process, or None.
     """
-    if process and process.poll() is None:  # Check if process is running
+    if process is None:
+        print("No scrcpy process object provided to stop.")
+        return
+
+    if process.poll() is None:  # Check if process is running
         print("Stopping scrcpy feed...")
         process.terminate()  # Send SIGTERM
         try:
@@ -70,7 +80,5 @@ def stop_scrcpy_feed(process: subprocess.Popen):
             process.kill()  # Send SIGKILL
             process.wait() # Ensure it's killed
             print("scrcpy feed killed.")
-    elif process and process.poll() is not None:
-        print("scrcpy feed was already stopped.")
     else:
-        print("No scrcpy process object provided or process is None.")
+        print(f"scrcpy feed was already stopped (return code: {process.returncode}).")

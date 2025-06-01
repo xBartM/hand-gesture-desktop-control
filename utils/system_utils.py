@@ -1,11 +1,13 @@
 import os
+from typing import Tuple, Optional
 
-def get_screen_resolution():
-    """
-    Get the resolution of the screen using xdpyinfo utility (Linux specific).
+def get_screen_resolution() -> Tuple[Optional[int], Optional[int]]:
+    """Gets the resolution of the primary screen using xdpyinfo (Linux specific).
 
     Returns:
-        tuple[int, int]: x and y components of screen resolution, or (None, None) if error.
+        A tuple containing (width, height) of the screen in pixels.
+        Returns (None, None) if the resolution cannot be determined or if
+        xdpyinfo is not available or fails.
     """
     try:
         output = os.popen("xdpyinfo | grep dimensions | awk '{print $2}'").read()

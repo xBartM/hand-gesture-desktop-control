@@ -1,27 +1,34 @@
-def get_scrcpy_preset(cfg_name):
-    """
-    Get predefined scrcpy configurations for specific devices.
+from typing import Dict
+
+_SCRCPY_PRESETS: Dict[str, Dict[str, str]] = {
+    'Xiaomi Mi 9t - Open Camera': {
+        "video-codec": "h264",
+        "video-encoder": "OMX.qcom.video.encoder.avc",
+        "crop": "1080:1080:0:600"
+    },
+    'Xperia Z2 Tablet - Open Camera': {
+        "video-codec": "h264",
+        "video-encoder": "OMX.qcom.video.encoder.avc",
+        "crop": "1080:1080:420:0",
+        "max-fps": "30"
+    }
+    # Add more presets here
+}
+
+def get_scrcpy_preset(cfg_name: str) -> Dict[str, str]:
+    """Gets predefined scrcpy configurations for specific devices.
 
     Args:
-        cfg_name (str): Name of the configuration preset.
+        cfg_name: Name of the configuration preset.
 
     Returns:
-        dict: A dictionary containing scrcpy arguments.
+        A dictionary containing scrcpy arguments. A copy of the preset is
+        returned to prevent modification of the original preset.
 
     Raises:
         ValueError: If an unknown cfg_name is provided.
     """
-    cfg = {}
-    if cfg_name == 'Xiaomi Mi 9t - Open Camera':
-        cfg["video-codec"] = "h264"
-        cfg["video-encoder"] = "OMX.qcom.video.encoder.avc"
-        cfg["crop"] = "1080:1080:0:600"
-    elif cfg_name == 'Xperia Z2 Tablet - Open Camera':
-        cfg["video-codec"] = "h264"
-        cfg["video-encoder"] = "OMX.qcom.video.encoder.avc"
-        cfg["crop"] = "1080:1080:420:0"
-        cfg["max-fps"] = "30" 
+    if cfg_name in _SCRCPY_PRESETS:
+        return _SCRCPY_PRESETS[cfg_name].copy()
     else:
-        raise ValueError(f"Unknown cfg_name: {cfg_name}")
-
-    return cfg
+        raise ValueError(f"Unknown scrcpy preset name: {cfg_name}")
