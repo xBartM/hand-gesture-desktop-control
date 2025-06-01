@@ -14,10 +14,6 @@ MODEL_ASSET_PATH = '{your_path_to}/hand_landmarker.task'
 ENABLE_MOUSE_CONTROL = True
 # Landmark from mp.solutions.hands.HandLandmark used for cursor control
 MOUSE_CONTROL_LANDMARK_INDEX = mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP.value
-# Smoothing factor for mouse movement.
-# If smoothing factor = 0.7, it means 70% of current raw, 30% of last.
-# Lower values provide more smoothing but also more lag.
-SMOOTHING_FACTOR = 0.1
 
 # Margins define the active area of the camera feed for mouse control.
 # Values are percentages of the frame (0.0 to 1.0).
@@ -26,6 +22,30 @@ MARGIN_LEFT = 0.3
 MARGIN_RIGHT = 0.1
 MARGIN_TOP = 0.3
 MARGIN_BOTTOM = 0.15
+
+# --- Mouse Smoothing Configuration ---
+# Default smoothing factor if adaptive smoothing is disabled.
+# Higher value (closer to 1.0) = more responsive, less smooth.
+# Lower value (closer to 0.0) = smoother, more lag.
+DEFAULT_SMOOTHING_FACTOR = 0.7
+
+ENABLE_ADAPTIVE_SMOOTHING = True # Set to False to use DEFAULT_SMOOTHING_FACTOR
+
+# Settings for adaptive smoothing (if ENABLE_ADAPTIVE_SMOOTHING is True)
+# Smoothing factor dynamically adjusts based on hand movement speed.
+# Factor applied when hand is moving slowly (reduces jitter).
+ADAPTIVE_SMOOTHING_MIN_FACTOR = 0.2
+# Factor applied when hand is moving quickly (maintains responsiveness).
+ADAPTIVE_SMOOTHING_MAX_FACTOR = 0.85
+
+# Velocity thresholds (distance moved by the raw control landmark in normalized
+# coordinates between frames).
+# Below this velocity, MIN_FACTOR is used.
+ADAPTIVE_SMOOTHING_VELOCITY_LOW_THRESHOLD = 0.003 # Threshold for very slow movement / jitter
+# Above this velocity, MAX_FACTOR is used.
+ADAPTIVE_SMOOTHING_VELOCITY_HIGH_THRESHOLD = 0.025 # Threshold for clear, intentional movement
+# Between LOW and HIGH thresholds, the factor is linearly interpolated.
+# Ensure ADAPTIVE_SMOOTHING_VELOCITY_LOW_THRESHOLD < ADAPTIVE_SMOOTHING_VELOCITY_HIGH_THRESHOLD.
 
 # --- Pinch Click Configuration ---
 ENABLE_PINCH_CLICK = True
