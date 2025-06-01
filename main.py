@@ -55,7 +55,7 @@ def _mediapipe_result_callback(
 
     # --- Mouse Control Logic (delegated) ---
     mouse_control.process_hand_for_mouse_control(
-        result.hand_landmarks,
+        result.hand_landmarks, # This is a list of lists of landmarks
         _mouse_manager_instance
     )
 
@@ -197,6 +197,8 @@ def run_application():
         traceback.print_exc() # Provides more detailed error info
     finally:
         print("Cleaning up resources...")
+        if _mouse_manager_instance: # _mouse_manager_instance is globally defined
+            _mouse_manager_instance.cleanup() # Call cleanup for mouse manager
         if cam:
             cam.release()
             print("Camera released.")
