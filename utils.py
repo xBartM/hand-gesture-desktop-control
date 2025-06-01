@@ -5,6 +5,7 @@ import signal
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
+import cv2
 
 
 def start_camera(feed_type='scrcpy', v4l2_device='/dev/video0', max_size=480, video_playback=False, **kwargs):
