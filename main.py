@@ -21,7 +21,8 @@ SCRCPY_CONFIG_PRESET_NAME = "Xperia Z2 Tablet - Open Camera"
 # --- Mouse Control Configuration ---
 ENABLE_MOUSE_CONTROL = True  # Set to False to disable mouse control
 MOUSE_CONTROL_LANDMARK = mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP # Landmark 9
-SMOOTHING_FACTOR = 0.3  # Lower value = more smoothing (e.g., 0.1 to 0.5)
+# SMOOTHING_FACTOR = 0.3  # Lower value = more smoothing (e.g., 0.1 to 0.5)
+SMOOTHING_FACTOR = 0.5  # Lower value = more smoothing (e.g., 0.1 to 0.5)
 
 # --- Global Variables ---
 annotated_frame_buffer = Queue()
@@ -61,8 +62,15 @@ def mediapipe_result_callback(result: HandLandmarkerResult, output_image: MpImag
             # MediaPipe's Y is 0 at top, 1 at bottom. Screen Y is also 0 at top, so direct mapping is fine.
             # MediaPipe's X is 0 at left, 1 at right. Screen X is also 0 at left.
             # If your camera view is mirrored, you might need to invert X: (1.0 - control_landmark.x)
-            raw_x = control_landmark.x * screen_width
-            raw_y = control_landmark.y * screen_height
+            # Add some Margin, so the whole screen is accessible
+            MARGIN_LEFT = 0.3  
+            MARGIN_RIGHT = 0.1 
+            MARGIN_TOP = 0.3 
+            MARGIN_BOTTOM = 0.15 
+            raw_x = (control_landmark.x - MARGIN_LEFT) / (1-MARGIN_LEFT-MARGIN_RIGHT)
+            raw_y = (control_landmark.y - MARGIN_TOP) / (1-MARGIN_TOP-MARGIN_BOTTOM)
+            raw_x *= screen_width
+            raw_y *= screen_height
 
             if is_first_mouse_move:
                 target_x = raw_x
