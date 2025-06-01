@@ -3,8 +3,8 @@ import mediapipe as mp
 
 # --- Scrcpy and Camera Configuration ---
 V4L2_DEVICE = "/dev/video0"  # Virtual camera device for scrcpy output
-# SCRCPY_MAX_SIZE = 240        # Max resolution (height or width) for scrcpy feed
-SCRCPY_MAX_SIZE = 1080        # Max resolution (height or width) for scrcpy feed
+SCRCPY_MAX_SIZE = 240        # Max resolution (height or width) for scrcpy feed
+# SCRCPY_MAX_SIZE = 1080        # Max resolution (height or width) for scrcpy feed
 SCRCPY_CONFIG_PRESET_NAME = "Xperia Z2 Tablet - Open Camera" # Preset for scrcpy settings
 
 # --- MediaPipe Model Configuration ---
